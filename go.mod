@@ -1,4 +1,4 @@
-module github.com/casbin/casbin-pg-adapter
+module github.com/thnt/casbin-pgx-adapter
 
 go 1.18
 
