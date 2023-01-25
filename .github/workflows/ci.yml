@@ -5,11 +5,10 @@ on:
   - pull_request
 
 jobs:
-
   test:
     runs-on: ubuntu-latest
 
-    services: 
+    services:
       postgres:
         image: postgres
         env:
@@ -31,17 +30,16 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run Unit tests
         run: go test -v ./...
-        env: 
+        env:
           PG_CONN: postgresql://postgres:postgres@127.0.0.1:5432/postgres?sslmode=disable
 
   semantic-release:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
-
       - uses: actions/checkout@v2
       - name: Run semantic-release
-        if: github.repository == 'casbin/casbin-pg-adapter' && github.event_name == 'push'
+        if: github.repository == 'thnt/casbin-pgx-adapter' && github.event_name == 'push'
         run: |
           npm install --save-dev semantic-release@17.2.4
           npx semantic-release

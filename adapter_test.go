@@ -1,12 +1,13 @@
-package pgadapter
+package pgxadapter
 
 import (
+	"context"
 	"os"
 	"testing"
 
 	"github.com/casbin/casbin/v2"
 	"github.com/casbin/casbin/v2/util"
-	"github.com/go-pg/pg/v10"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -23,11 +24,11 @@ func (s *AdapterTestSuite) assertPolicy(expected, res [][]string) {
 }
 
 func (s *AdapterTestSuite) dropCasbinDB() {
-	opts, err := pg.ParseURL(os.Getenv("PG_CONN"))
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, os.Getenv("PG_CONN"))
 	s.Require().NoError(err)
-	db := pg.Connect(opts)
-	defer db.Close()
-	db.Exec("DROP DATABASE casbin")
+	defer pool.Close()
+	pool.Exec(ctx, "DROP DATABASE casbin")
 }
 
 func (s *AdapterTestSuite) SetupTest() {
@@ -137,11 +138,31 @@ func (s *AdapterTestSuite) TestAutoSave() {
 	s.Require().NoError(err)
 }
 
-func (s *AdapterTestSuite) TestConstructorOptions() {
-	opts, err := pg.ParseURL(os.Getenv("PG_CONN"))
+func (s *AdapterTestSuite) TestConstructorDB() {
+	ctx := context.Background()
+	pool, err := pgxpool.New(ctx, os.Getenv("PG_CONN"))
 	s.Require().NoError(err)
 
-	a, err := NewAdapter(opts)
+	a, err := NewAdapterByDB(pool, WithTableName("rules"))
+	s.Require().NoError(err)
+	defer a.Close()
+
+	e, err := casbin.NewEnforcer("examples/rbac_model.conf", "examples/rbac_policy.csv")
+	s.Require().NoError(err)
+	err = a.SavePolicy(e.GetModel())
+	s.Require().NoError(err)
+
+	s.e, err = casbin.NewEnforcer("examples/rbac_model.conf", a)
+	s.Require().NoError(err)
+
+	s.assertPolicy(
+		[][]string{{"alice", "data1", "read"}, {"bob", "data2", "write"}, {"data2_admin", "data2", "read"}, {"data2_admin", "data2", "write"}},
+		s.e.GetPolicy(),
+	)
+}
+
+func (s *AdapterTestSuite) TestConstructorOptions() {
+	a, err := NewAdapter(os.Getenv("PG_CONN"))
 	s.Require().NoError(err)
 	defer a.Close()
 
